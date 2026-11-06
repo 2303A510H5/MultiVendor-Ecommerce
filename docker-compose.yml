@@ -1,0 +1,64 @@
+services:
+  # Database Container
+  mongo:
+    image: mongo:6.0
+    container_name: shopverse_mongo
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: multivendor
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - shopverse_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend REST API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: shopverse_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGODB_URI: mongodb://mongo:27017/multivendor
+      JWT_SECRET: super_secret_multivendor_jwt_key_2026
+      RAZORPAY_KEY_ID: rzp_test_sandbox_2026
+      RAZORPAY_KEY_SECRET: rzp_test_secret_sandbox_2026
+      CLIENT_URL: http://localhost:3000
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - shopverse_net
+
+  # Frontend Web UI
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: shopverse_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - shopverse_net
+
+volumes:
+  mongo_data:
+    driver: local
+
+networks:
+  shopverse_net:
+    driver: bridge
